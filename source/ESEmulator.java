@@ -81,7 +81,7 @@ boolean isConnect = false;
 int fadeFactor = 15;  
 
 public void setup()
-{
+{ 
   
   //Initilization. 
   for(int i=0; i<num; i++)
@@ -101,6 +101,8 @@ public void setup()
   //Initialize the connector used for demonstration. 
   con = new Connector(); 
   duration = new Double(1)/frameRate;
+  //Set the text size for force magnitude display. 
+  textSize(height/20); 
 }
 
 public void draw()
@@ -134,6 +136,8 @@ public void draw()
     {
       //Increment to the next. 
       dispIndex[0]++; 
+      //The second index must be simultaneously incremented. 
+      dispIndex[1] = dispIndex[0]+1; 
       return;
     }
     if(state.get(dispIndex[1]))
@@ -143,7 +147,7 @@ public void draw()
       return;
     }
     //Set the connector to connect this two coordinates. 
-    con.set((int)pos.get(dispIndex[0])[0],(int)pos.get(dispIndex[0])[1],(int)pos.get(dispIndex[1])[0],(int)pos.get(dispIndex[1])[1]); 
+    con.set((int)pos.get(dispIndex[0])[0],(int)pos.get(dispIndex[0])[1],(int)pos.get(dispIndex[1])[0],(int)pos.get(dispIndex[1])[1],dispIndex[0],dispIndex[1]); 
     //Indicate that two charges are currently being connected. 
     isConnect = true; 
     drawCharge(dispIndex[0]);
@@ -250,7 +254,7 @@ public void draw()
 }
 
 //Compute the accelerations of two particles from their electrostatic interaction. 
-public void computeAcceleration(int first, int second)
+public Float computeAcceleration(int first, int second)
 {
   //The distance between two particles. 
   double dist = Math.sqrt(Math.pow(pos.get(first)[0]-pos.get(second)[0],2)+Math.pow(pos.get(first)[1]-pos.get(second)[1],2))/distRatio; 
@@ -262,7 +266,8 @@ public void computeAcceleration(int first, int second)
   acceleration.get(first)[0] = (float)xPro/mass.get(first);
   acceleration.get(first)[1] = (float)yPro/mass.get(first);
   acceleration.get(second)[0] = (float)-xPro/mass.get(second);
-  acceleration.get(second)[1] = (float)-yPro/mass.get(second);
+  acceleration.get(second)[1] = (float)-yPro/mass.get(second); 
+  return charges.get(first)*charges.get(second)>0?forceM:-forceM;
 }
 
 //Check if a given position is within the interior of a charge particle. 
@@ -399,7 +404,10 @@ public void drawCharge(int index)
 }
 
 /**
- * A connector of two points in which the two points are connected by segments. 
+ * A connector of two points in which the two points are connected by segments. As it
+ * serves as a demo of sample calculation, as the two charges are being connected, the
+ * force calculated between are also displayed. A positive force indicates a repulsive
+ * interaction while a negative force indicates an attractive interaction. 
  */
 class Connector
 {
@@ -411,10 +419,14 @@ class Connector
   private float increX, increY; 
   //A counter of the number of segments drawn. This number should not exceed 10. 
   private int counter; 
+  //The coordinates in which the boundaries of the text is displayed. 
+  private int[][] text = {{width*3/4,height*12/13},{width,height}};
+  //The indices of the charges this connector is currently connecting. 
+  private int[] indices = new int[2]; 
   
-  public Connector(int startX, int startY, int endX, int endY)
+  public Connector(int startX, int startY, int endX, int endY, int indexOne, int indexTwo)
   {
-    set(startX,startY,endX,endY); 
+    set(startX,startY,endX,endY,indexOne,indexTwo); 
   }
   
   //A constructor reserved for general use in which at the time of construction the 
@@ -428,8 +440,18 @@ class Connector
   //Draw a segment of the increment from the current position to the ending point. 
   public boolean connect()
   {
+    //Wipe the display area for the force magnitude. 
     if(counter>4)
-      return false; 
+    { 
+      fill(backColor[0],backColor[1],backColor[2]);
+      noStroke(); 
+      rect(text[0][0],text[0][1],text[1][0],text[1][1]);
+      //Undo the no stroke. 
+      g.stroke = true; 
+      return false;
+    }
+    //Print the calculated force between the charges. 
+    text(computeAcceleration(indices[0],indices[1]).toString()+"N",text[0][0],text[0][1],text[1][0],text[1][1]);  
     line(curX,curY,curX+increX,curY+increY);
     curX+=2*increX; 
     curY+=2*increY;
@@ -438,8 +460,11 @@ class Connector
   }
   
   //Reset the connector to a different set of starting and ending points. 
-  public void set(int startX, int startY, int endX, int endY)
+  public void set(int startX, int startY, int endX, int endY, int startIndex, int endIndex)
   {
+    //Set the indices. 
+    indices[0] = startIndex;
+    indices[1] = endIndex; 
     //Reset the counter. 
     counter = 0; 
     //Reset the positions. 
